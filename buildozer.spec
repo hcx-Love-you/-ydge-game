@@ -19,3 +19,5 @@ android.cflags = -Wno-error=format-security
 log_level = 2
 warn_on_root = 1
 p4a.branch = develop
+# 核心：限制 Gradle 打包时的 Java 内存，防止最后阶段爆掉
+gradle.parameters = org.gradle.jvmargs=-Xmx2048m -Dorg.gradle.daemon=false
