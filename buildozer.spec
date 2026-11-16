@@ -1,20 +1,44 @@
-[app]
-title = 废土生存
-package.name = ydge
-package.domain = org.ydge
-source.dir = .
-source.include_exts = py,png,jpg,kv,atlas,ttf,otf,json
-version = 0.1
-requirements = python3,pygame==2.1.0
-orientation = landscape
-fullscreen = 1
-android.accept_sdk_license = True
-android.api = 31
-android.minapi = 24
-android.ndk_api = 24
-android.archs = arm64-v8a
-android.cflags = -Wno-error=format-security
-
-[buildozer]
-log_level = 2
-warn_on_root = 1
+name: Build Web & APK
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+        
+    - name: Install Pygbag
+      run: |
+        pip install pygbag
+        
+    - name: Compile Python to WebAssembly
+      run: |
+        pygbag --build main.py
+        
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Install Capacitor and build APK
+      run: |
+        npm init -y
+        npm install @capacitor/core @capacitor/cli @capacitor/android
+        npx cap init "废土生存" "org.ydge.ydge" --web-dir=build/web
+        
+        npx cap add android
+        npx cap sync android
+        
+        cd android
+        chmod +x gradlew
+        ./gradlew assembleDebug
+        
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: ydge-apk
+        path: android/app/build/outputs/apk/debug/app-debug.apk
