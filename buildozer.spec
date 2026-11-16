@@ -6,9 +6,13 @@ source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,ttf,otf,json
 version = 0.1
 requirements = python3==3.10.12,pygame-ce
+hostpython3==3.10.12
 orientation = landscape
 fullscreen = 1
 android.accept_sdk_license = True
+android.api = 31
+android.minapi = 24
+android.ndk_api = 24
 
 [buildozer]
 log_level = 2
