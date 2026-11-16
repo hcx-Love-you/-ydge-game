@@ -1,76 +1,23 @@
-name: Build Web & APK
+name: Build Native APK
 on: [push]
 jobs:
   build:
     runs-on: ubuntu-latest
+    container:
+      image: kivy/buildozer:latest
     steps:
     - uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
-
-    - name: Install Pygbag
-      run: pip install pygbag
-
-    # 恢复标准构建，它会稳定生成 build/web/index.html
-    - name: Compile Python to WebAssembly
-      run: pygbag --build main.py
-
-    # 核心：给网页强行注入跨域隔离头，彻底解决 WebView 卡死！
-    - name: Patch Index HTML for Offline WebView
+    
+    - name: Build with Buildozer
       run: |
-        python -c "
-        import os
-        html_path = 'build/web/index.html'
-        if os.path.exists(html_path):
-            with open(html_path, 'r') as f: html = f.read()
-            # 注入跨域头，这是 WebView 运行多线程 Pygbag 的必需品
-            html = html.replace('<head>', '<head>\n<meta http-equiv=\"Cross-Origin-Opener-Policy\" content=\"same-origin\">\n<meta http-equiv=\"Cross-Origin-Embedder-Policy\" content=\"require-corp\">')
-            with open(html_path, 'w') as f: f.write(html)
-            print('成功注入跨域安全头！')
-        else:
-            print('警告：未找到文件，跳过。')
-        "
-
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'temurin'
-        java-version: '17'
-
-    - name: Install Capacitor and build APK
-      run: |
-        npm init -y
-        npm install @capacitor/core@5 @capacitor/cli@5 @capacitor/android@5
-        
-        npx cap init "废土生存" "org.ydge.ydge" --web-dir=build/web
-        
-        node -e "const fs=require('fs'); let c=JSON.parse(fs.readFileSync('capacitor.config.json')); c.server={androidScheme:'https'}; fs.writeFileSync('capacitor.config.json', JSON.stringify(c,null,2));"
-        
-        npx cap add android
-        npx cap sync android
-        
-        # 开启 WebView 本地文件权限
-        python -c "
-        with open('android/app/src/main/java/org/ydge/ydge/MainActivity.java', 'r') as f: code = f.read()
-        code = code.replace('public class MainActivity extends BridgeActivity {}', 'public class MainActivity extends BridgeActivity {\n  @Override\n  public void onCreate(android.os.Bundle savedInstanceState) {\n    super.onCreate(savedInstanceState);\n    this.bridge.getWebView().getSettings().setJavaScriptEnabled(true);\n    this.bridge.getWebView().getSettings().setAllowFileAccess(true);\n    this.bridge.getWebView().getSettings().setAllowContentAccess(true);\n  }\n}')
-        with open('android/app/src/main/java/org/ydge/ydge/MainActivity.java', 'w') as f: f.write(code)
-        "
-
-        cd android
-        rm -rf ~/.gradle/caches/jars-9
-        chmod +x gradlew
-        ./gradlew assembleDebug
+        # 清除可能残留的旧缓存
+        rm -rf ~/.buildozer
+        rm -rf .buildozer
+        # 直接用官方容器打包，不用配任何环境
+        buildozer android debug
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: ydge-apk
-        path: android/app/build/outputs/apk/debug/app-debug.apk
+        path: bin/*.apk
