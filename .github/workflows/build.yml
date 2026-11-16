@@ -14,12 +14,14 @@ jobs:
     - name: Install Pygbag
       run: pip install pygbag
 
-    - name: Compile Python to WebAssembly
-      run: pygbag --build main.py
+    # 关键修改：使用 --archive 模式生成纯本地离线包，阻止它联网下载！
+    - name: Compile Python to WebAssembly (Offline Mode)
+      run: pygbag --archive main.py
 
-    # 👇 新增：给网页强行注入跨域权限，防止 WebView 卡死
-    - name: Patch Index HTML for WebView
+    # 修复 WebView 的跨域和安全限制
+    - name: Patch Index HTML and Config
       run: |
+        # 强制注入跨域隔离标签
         python -c "
         with open('build/web/index.html', 'r') as f: html = f.read()
         html = html.replace('<head>', '<head>\n<meta http-equiv=\"Cross-Origin-Opener-Policy\" content=\"same-origin\">\n<meta http-equiv=\"Cross-Origin-Embedder-Policy\" content=\"require-corp\">')
@@ -44,15 +46,22 @@ jobs:
         
         npx cap init "废土生存" "org.ydge.ydge" --web-dir=build/web
         
-        # 强制安卓 WebView 使用 https 协议加载本地文件
-        node -e "const fs=require('fs'); let c=JSON.parse(fs.readFileSync('capacitor.config.json')); c.server={androidScheme:'https'}; fs.writeFileSync('capacitor.config.json', JSON.stringify(c,null,2));"
+        # 强行修改 Android WebView 配置，允许运行高级网页特性
+        node -e "const fs=require('fs'); let c=JSON.parse(fs.readFileSync('capacitor.config.json')); c.server={androidScheme:'https', allowNavigation: ['*']}; fs.writeFileSync('capacitor.config.json', JSON.stringify(c,null,2));"
         
         npx cap add android
         npx cap sync android
         
+        # 修改安卓原生代码，强行打开 WebView 的硬件加速和多线程
+        python -c "
+        import re
+        with open('android/app/src/main/java/org/ydge/ydge/MainActivity.java', 'r') as f: code = f.read()
+        code = code.replace('public class MainActivity extends BridgeActivity {}', 'public class MainActivity extends BridgeActivity {\n  @Override\n  public void onCreate(android.os.Bundle savedInstanceState) {\n    super.onCreate(savedInstanceState);\n    this.bridge.getWebView().getSettings().setJavaScriptEnabled(true);\n    this.bridge.getWebView().getSettings().setAllowFileAccess(true);\n  }\n}')
+        with open('android/app/src/main/java/org/ydge/ydge/MainActivity.java', 'w') as f: f.write(code)
+        "
+
         cd android
         rm -rf ~/.gradle/caches/jars-9
-        
         chmod +x gradlew
         ./gradlew assembleDebug
 
