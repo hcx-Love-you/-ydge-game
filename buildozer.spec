@@ -5,7 +5,7 @@ package.domain = org.ydge
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,ttf,otf,json
 version = 0.1
-requirements = python3,pygame
+requirements = python3,pygame==2.1.0
 orientation = landscape
 fullscreen = 1
 android.accept_sdk_license = True
