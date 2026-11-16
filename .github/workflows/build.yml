@@ -24,6 +24,8 @@ jobs:
 
     - name: Build with Buildozer
       run: |
+        export _JAVA_OPTIONS="-Xmx4G"
+        export GRADLE_OPTS="-Xmx4096m -Dorg.gradle.daemon=false"
         rm -rf ~/.buildozer
         rm -rf .buildozer
         buildozer android debug
