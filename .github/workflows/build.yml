@@ -14,25 +14,24 @@ jobs:
     - name: Install Pygbag
       run: pip install pygbag
 
-    # 【核心修复 1】加上 --cdn local，强制把所有运行环境下载到本地 build/web 文件夹里！
-    - name: Compile Python to WebAssembly (100% Offline)
-      run: pygbag --cdn local main.py
+    # 恢复标准构建，它会稳定生成 build/web/index.html
+    - name: Compile Python to WebAssembly
+      run: pygbag --build main.py
 
-    # 【核心修复 2】注入多线程权限，并彻底修改 HTML 路径
+    # 核心：给网页强行注入跨域隔离头，彻底解决 WebView 卡死！
     - name: Patch Index HTML for Offline WebView
       run: |
         python -c "
         import os
         html_path = 'build/web/index.html'
-        with open(html_path, 'r') as f: html = f.read()
-        
-        # 强行注入跨域隔离权限，防止卡死
-        html = html.replace('<head>', '<head>\n<meta http-equiv=\"Cross-Origin-Opener-Policy\" content=\"same-origin\">\n<meta http-equiv=\"Cross-Origin-Embedder-Policy\" content=\"require-corp\">')
-        
-        # 把原来指向 Github 的在线 CDN 地址，全部替换为本地路径
-        html = html.replace('https://pygame-web.github.io/cdn/0.9.3/', './cdn/')
-        
-        with open(html_path, 'w') as f: f.write(html)
+        if os.path.exists(html_path):
+            with open(html_path, 'r') as f: html = f.read()
+            # 注入跨域头，这是 WebView 运行多线程 Pygbag 的必需品
+            html = html.replace('<head>', '<head>\n<meta http-equiv=\"Cross-Origin-Opener-Policy\" content=\"same-origin\">\n<meta http-equiv=\"Cross-Origin-Embedder-Policy\" content=\"require-corp\">')
+            with open(html_path, 'w') as f: f.write(html)
+            print('成功注入跨域安全头！')
+        else:
+            print('警告：未找到文件，跳过。')
         "
 
     - name: Set up Node.js
@@ -58,9 +57,8 @@ jobs:
         npx cap add android
         npx cap sync android
         
-        # 强行给 WebView 开启本地文件读取权限
+        # 开启 WebView 本地文件权限
         python -c "
-        import re
         with open('android/app/src/main/java/org/ydge/ydge/MainActivity.java', 'r') as f: code = f.read()
         code = code.replace('public class MainActivity extends BridgeActivity {}', 'public class MainActivity extends BridgeActivity {\n  @Override\n  public void onCreate(android.os.Bundle savedInstanceState) {\n    super.onCreate(savedInstanceState);\n    this.bridge.getWebView().getSettings().setJavaScriptEnabled(true);\n    this.bridge.getWebView().getSettings().setAllowFileAccess(true);\n    this.bridge.getWebView().getSettings().setAllowContentAccess(true);\n  }\n}')
         with open('android/app/src/main/java/org/ydge/ydge/MainActivity.java', 'w') as f: f.write(code)
