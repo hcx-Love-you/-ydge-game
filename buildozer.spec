@@ -1,1 +1,19 @@
-# 已废弃，改用 Pygbag + Capacitor
+[app]
+title = 废土生存
+package.name = ydge
+package.domain = org.ydge
+source.dir = .
+source.include_exts = py,png,jpg,kv,atlas,ttf,otf,json
+version = 0.1
+requirements = python3,pygame
+orientation = landscape
+fullscreen = 1
+android.accept_sdk_license = True
+android.api = 31
+android.minapi = 24
+android.ndk_api = 24
+android.archs = arm64-v8a
+
+[buildozer]
+log_level = 2
+warn_on_root = 1
