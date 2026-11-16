@@ -19,7 +19,7 @@ jobs:
     - name: Install buildozer and dependencies
       run: |
         pip3 install --user --upgrade buildozer virtualenv
-        pip3 install --user "cython<3.0" "setuptools<71.0.0"
+        pip3 install --user "cython==0.29.36" "setuptools<71.0.0"
         echo "$HOME/.local/bin" >> $GITHUB_PATH
 
     - name: Build with Buildozer
