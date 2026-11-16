@@ -24,7 +24,6 @@ jobs:
 
     - name: Build with Buildozer
       run: |
-        export CFLAGS="-Wno-error=format-security"
         rm -rf ~/.buildozer
         rm -rf .buildozer
         buildozer android debug
