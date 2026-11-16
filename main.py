@@ -368,6 +368,103 @@ class GameApp:
         except KeyboardInterrupt: pass
         finally: pygame.quit()
 
-if __name__ == "__main__":
+import asyncio
+
+async def loading_screen(screen, font):
+    loading_steps = [
+        "正在连接废土网络...",
+        "初始化时间引擎（Time Engine）...",
+        "正在生成 242 个国家的势力分布...",
+        "正在融合 NPC 变异 DNA 词库...",
+        "正在演算历史时间线...",
+        "世界生成完毕，准备进入！"
+    ]
+    for i, step in enumerate(loading_steps):
+        screen.fill((15, 18, 25)) 
+        
+        text_surf = font.render(step, True, (0, 255, 200))
+        text_rect = text_surf.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 - 50))
+        screen.blit(text_surf, text_rect)
+        
+        progress = (i + 1) / len(loading_steps)
+        bar_width, bar_height = 400, 20
+        bar_x, bar_y = (SCREEN_WIDTH - bar_width) // 2, (SCREEN_HEIGHT - bar_height) // 2 + 50
+        
+        pygame.draw.rect(screen, (40, 50, 70), (bar_x, bar_y, bar_width, bar_height), border_radius=10)
+        pygame.draw.rect(screen, (0, 255, 200), (bar_x, bar_y, int(bar_width * progress), bar_height), border_radius=10)
+        
+        pygame.display.flip()
+        await asyncio.sleep(0.5) 
+
+async def main():
+    pygame.init()
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    
+    # 加载中文字体
+    font_path = "assets/fonts/simhei.ttf"
+    if os.path.exists(font_path):
+        loading_font = pygame.font.Font(font_path, 36)
+    else:
+        loading_font = pygame.font.SysFont("arial", 36)
+
+    # 执行加载动画
+    await loading_screen(screen, loading_font)
+
+    # 启动你原来的游戏
     app = GameApp()
-    app.run()
+    
+    # 【核心修改】把原来的 app.run() 改成异步主循环，防止网页卡死
+    app.running = True
+    while app.running:
+        await asyncio.sleep(1 / 60) # 代替原来的 clock.tick(60)
+        
+        # 这一块是你原来 GameApp.run 里的逻辑，现在直接搬到这里
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                app.running = False
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                vx, vy = event.pos
+                if 130 <= vx <= 190 and 550 <= vy <= 610: app.touch_state["up"] = True
+                elif 130 <= vx <= 190 and 620 <= vy <= 680: app.touch_state["down"] = True
+                elif 60 <= vx <= 120 and 620 <= vy <= 680: app.touch_state["left"] = True
+                elif 200 <= vx <= 260 and 620 <= vy <= 680: app.touch_state["right"] = True
+            elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                vx, vy = event.pos
+                app.touch_state["up"] = False
+                app.touch_state["down"] = False
+                app.touch_state["left"] = False
+                app.touch_state["right"] = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key in [pygame.K_UP, pygame.K_w]: app.keys_state["up"] = True
+                elif event.key in [pygame.K_DOWN, pygame.K_s]: app.keys_state["down"] = True
+                elif event.key in [pygame.K_LEFT, pygame.K_a]: app.keys_state["left"] = True
+                elif event.key in [pygame.K_RIGHT, pygame.K_d]: app.keys_state["right"] = True
+            elif event.type == pygame.KEYUP:
+                if event.key in [pygame.K_UP, pygame.K_w]: app.keys_state["up"] = False
+                elif event.key in [pygame.K_DOWN, pygame.K_s]: app.keys_state["down"] = False
+                elif event.key in [pygame.K_LEFT, pygame.K_a]: app.keys_state["left"] = False
+                elif event.key in [pygame.K_RIGHT, pygame.K_d]: app.keys_state["right"] = False
+
+        # 执行移动
+        if app.move_timer > 0:
+            app.move_timer -= 1
+        else:
+            moved = False
+            if app.keys_state["up"] or app.touch_state["up"]: moved = app.move_player(0, -1)
+            elif app.keys_state["down"] or app.touch_state["down"]: moved = app.move_player(0, 1)
+            elif app.keys_state["left"] or app.touch_state["left"]: moved = app.move_player(-1, 0)
+            elif app.keys_state["right"] or app.touch_state["right"]: moved = app.move_player(1, 0)
+
+            if moved: app.move_timer = app.move_cooldown
+            elif any(app.keys_state.values()) or any(app.touch_state.values()): app.move_timer = 5
+
+        # 渲染
+        app.draw_game_scene()
+        app.screen.fill((0, 0, 0))
+        app.screen.blit(app.virtual_screen, (0, 0))
+        pygame.display.flip()
+
+    pygame.quit()
+
+if __name__ == "__main__":
+    asyncio.run(main())
