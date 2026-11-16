@@ -5,24 +5,31 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v4
+    
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
+        
     - name: Install system dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo6 cmake libffi-dev libssl-dev
+        
     - name: Install buildozer
       run: |
         pip3 install --user --upgrade buildozer virtualenv
-        pip3 install --user "cython<3.0" "setuptools<71.0.0"
+        # 锁死这两个版本，是避开 C 语言编译报错的灵魂
+        pip3 install --user "cython==0.29.36" "setuptools<71.0.0"
         echo "$HOME/.local/bin" >> $GITHUB_PATH
+        
     - name: Build APK
       run: |
+        # 彻底清空云端缓存，防止之前的错误残留
         rm -rf ~/.buildozer
         rm -rf .buildozer
         buildozer android debug
+        
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
