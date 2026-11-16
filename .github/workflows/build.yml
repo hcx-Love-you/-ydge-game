@@ -17,6 +17,15 @@ jobs:
     - name: Compile Python to WebAssembly
       run: pygbag --build main.py
 
+    # 👇 新增：给网页强行注入跨域权限，防止 WebView 卡死
+    - name: Patch Index HTML for WebView
+      run: |
+        python -c "
+        with open('build/web/index.html', 'r') as f: html = f.read()
+        html = html.replace('<head>', '<head>\n<meta http-equiv=\"Cross-Origin-Opener-Policy\" content=\"same-origin\">\n<meta http-equiv=\"Cross-Origin-Embedder-Policy\" content=\"require-corp\">')
+        with open('build/web/index.html', 'w') as f: f.write(html)
+        "
+
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
@@ -31,17 +40,17 @@ jobs:
     - name: Install Capacitor and build APK
       run: |
         npm init -y
-        # 锁定使用非常稳定的 Capacitor 5 版本
         npm install @capacitor/core@5 @capacitor/cli@5 @capacitor/android@5
         
         npx cap init "废土生存" "org.ydge.ydge" --web-dir=build/web
+        
+        # 强制安卓 WebView 使用 https 协议加载本地文件
+        node -e "const fs=require('fs'); let c=JSON.parse(fs.readFileSync('capacitor.config.json')); c.server={androidScheme:'https'}; fs.writeFileSync('capacitor.config.json', JSON.stringify(c,null,2));"
         
         npx cap add android
         npx cap sync android
         
         cd android
-        
-        # 清理可能损坏的 Gradle 缓存文件
         rm -rf ~/.gradle/caches/jars-9
         
         chmod +x gradlew
