@@ -11,6 +11,15 @@ jobs:
       with:
         python-version: '3.10'
         
+    # 💡 魔法 1：强行开辟 4GB 虚拟内存（Swap）
+    - name: Increase Swap Space
+      run: |
+        sudo swapoff -a
+        sudo fallocate -l 4G /swapfile
+        sudo chmod 600 /swapfile
+        sudo mkswap /swapfile
+        sudo swapon /swapfile
+        
     - name: Install system dependencies
       run: |
         sudo apt-get update
@@ -19,15 +28,16 @@ jobs:
     - name: Install buildozer
       run: |
         pip3 install --user --upgrade buildozer virtualenv
-        # 锁死这两个版本，是避开 C 语言编译报错的灵魂
         pip3 install --user "cython==0.29.36" "setuptools<71.0.0"
         echo "$HOME/.local/bin" >> $GITHUB_PATH
         
     - name: Build APK
       run: |
-        # 彻底清空云端缓存，防止之前的错误残留
         rm -rf ~/.buildozer
         rm -rf .buildozer
+        # 💡 魔法 2：限制编译线程数，防止内存瞬间被抽干
+        export MAKEFLAGS="-j2"
+        export GRADLE_OPTS="-Dorg.gradle.workers.max=2"
         buildozer android debug
         
     - name: Upload APK
