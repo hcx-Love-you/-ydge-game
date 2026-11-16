@@ -236,7 +236,7 @@ class GameApp:
     def draw_game_scene(self):
         self.virtual_screen.fill(COLOR_BG)
         
-        # 【新增】左上角控制台/模组按钮
+        # 左上角控制台按钮
         btn_rect = pygame.Rect(20, 20, 120, 40)
         pygame.draw.rect(self.virtual_screen, COLOR_BTN, btn_rect, border_radius=5)
         pygame.draw.rect(self.virtual_screen, COLOR_BORDER, btn_rect, 2, border_radius=5)
@@ -264,14 +264,12 @@ class GameApp:
 
         self.draw_center_scene(340, 20, 920, 680)
 
-        # 【新增】如果菜单开启，绘制遮罩和模组/修改选项
+        # 控制台菜单弹窗
         if GAME_STATE["show_menu"]:
-            # 半透明遮罩
             overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
             overlay.fill((0, 0, 0, 180))
             self.virtual_screen.blit(overlay, (0, 0))
             
-            # 菜单面板
             menu_rect = pygame.Rect(SCREEN_WIDTH//2 - 200, SCREEN_HEIGHT//2 - 150, 400, 300)
             pygame.draw.rect(self.virtual_screen, COLOR_PANEL_BG, menu_rect, border_radius=15)
             pygame.draw.rect(self.virtual_screen, COLOR_BORDER, menu_rect, 2, border_radius=15)
@@ -330,9 +328,8 @@ async def main():
                 # 点击左上角控制台按钮
                 if 20 <= vx <= 140 and 20 <= vy <= 60:
                     GAME_STATE["show_menu"] = not GAME_STATE["show_menu"]
-                # 如果菜单开着，处理菜单的点击
+                # 如果菜单开着，处理关闭按钮点击
                 elif GAME_STATE["show_menu"]:
-                    # 点击关闭按钮
                     if 680 <= vx <= 760 and 410 <= vy <= 450:
                         GAME_STATE["show_menu"] = False
                 # 如果没开菜单，处理方向键
