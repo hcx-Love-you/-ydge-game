@@ -3,9 +3,13 @@ import sys
 import os
 import math
 import random
+import asyncio
 
 sys.path.append(os.getcwd())
-from data import terrain_words
+try:
+    from data import terrain_words
+except ImportError:
+    print("警告：未找到 data.terrain_words 模块")
 
 os.environ['SDL_VIDEO_WINDOW_POS'] = "0,0"
 SCREEN_WIDTH, SCREEN_HEIGHT = 1280, 720
@@ -47,25 +51,25 @@ class TerrainEngine:
         rng = random.Random((x * 73856093) ^ (y * 19349663))
         base_r, base_g, base_b = t_data["base_color"]
         var_r, var_g, var_b = t_data["var_range"]
-        
+
         color = (
             max(0, min(255, base_r + rng.randint(-var_r, var_r))),
             max(0, min(255, base_g + rng.randint(-var_g, var_g))),
             max(0, min(255, base_b + rng.randint(-var_b, var_b)))
         )
-        
+
         resource = None
         is_big_tree = False
-        is_blocked = False 
-        tree_type = None 
-        
+        is_blocked = False
+        tree_type = None
+
         if terrain == "深海":
-            is_blocked = True 
-            
+            is_blocked = True
+
         if terrain == "森林":
-            if rng.random() > 0.8: 
+            if rng.random() > 0.8:
                 is_big_tree = True
-                is_blocked = True 
+                is_blocked = True
                 tree_type = "阔叶树" if moisture > 0.7 else "针叶树"
                 resource = tree_type
             elif rng.random() > 0.4:
@@ -86,12 +90,12 @@ class TerrainEngine:
             resource = "野花"
         elif terrain == "沙漠":
             roll = rng.random()
-            if roll > 0.88: 
+            if roll > 0.88:
                 is_big_tree = True
                 is_blocked = True
                 tree_type = "巨型仙人掌"
                 resource = tree_type
-            elif roll > 0.70: 
+            elif roll > 0.70:
                 resource = "小仙人掌"
 
         self.cache[key] = {"terrain": terrain, "color": color, "resource": resource, "is_big_tree": is_big_tree, "is_blocked": is_blocked, "tree_type": tree_type}
@@ -107,16 +111,15 @@ class GameApp:
         pygame.display.set_caption("废土生存 - 触屏长按/键盘双模版")
         self.clock = pygame.time.Clock()
         self.running = True
-        
+
         font_path = "/system/fonts/NotoSansCJK-Regular.ttc"
         self.font = pygame.font.Font(font_path, 22) if os.path.exists(font_path) else pygame.font.SysFont("arial", 22)
         self.title_font = pygame.font.Font(font_path, 36) if os.path.exists(font_path) else pygame.font.SysFont("arial", 36)
         self.small_font = pygame.font.Font(font_path, 18) if os.path.exists(font_path) else pygame.font.SysFont("arial", 18)
 
-        self.move_timer = 0 
+        self.move_timer = 0
         self.move_cooldown = 12
-        
-        # 记录键盘和触屏的按住状态
+
         self.keys_state = {"up": False, "down": False, "left": False, "right": False}
         self.touch_state = {"up": False, "down": False, "left": False, "right": False}
 
@@ -124,18 +127,18 @@ class GameApp:
         cx, cy = GAME_STATE["coord"]
         target_x, target_y = cx + dx, cy + dy
         target_info = engine.get_info(target_x, target_y)
-        if target_info["is_blocked"]: return False 
+        if target_info["is_blocked"]: return False
         GAME_STATE["coord"] = (target_x, target_y)
         return True
 
     def draw_center_scene(self, x, y, w, h):
         pygame.draw.rect(self.virtual_screen, (20, 20, 20), (x, y, w, h), border_radius=10)
         pygame.draw.rect(self.virtual_screen, COLOR_BORDER, (x, y, w, h), 2, border_radius=10)
-        
+
         cx, cy = GAME_STATE["coord"]
         tile_size = min(w, h) // (VIEW_RANGE * 2 + 1)
         center_x, center_y = x + w // 2, y + h // 2
-        
+
         current_info = engine.get_info(cx, cy)
         res_text = f" | 资源: {current_info['resource']}" if current_info['resource'] else ""
         self.virtual_screen.blit(self.title_font.render(f"{current_info['terrain']}{res_text}", True, COLOR_TEXT), (x + 20, y + 10))
@@ -146,7 +149,7 @@ class GameApp:
                 info = engine.get_info(tx, ty)
                 rect_x = center_x + i * tile_size - tile_size // 2
                 rect_y = center_y + j * tile_size - tile_size // 2
-                
+
                 pygame.draw.rect(self.virtual_screen, info["color"], (rect_x, rect_y, tile_size, tile_size))
                 border_color = (max(0, info["color"][0]-15), max(0, info["color"][1]-15), max(0, info["color"][2]-15))
                 pygame.draw.rect(self.virtual_screen, border_color, (rect_x, rect_y, tile_size, tile_size), 1)
@@ -189,7 +192,7 @@ class GameApp:
                 t_rect_x = ent["x"]
                 t_rect_y = ent["y"]
                 t_type = ent["tree_type"]
-                
+
                 if t_type in ["针叶树", "寒带松"]:
                     trunk_rect = pygame.Rect(t_rect_x - tile_size*0.15, t_rect_y - tile_size*0.5, tile_size*0.3, tile_size*0.8)
                     pygame.draw.rect(self.virtual_screen, (60, 40, 20), trunk_rect)
@@ -265,15 +268,16 @@ class GameApp:
                 pygame.draw.ellipse(self.virtual_screen, (0, 0, 0), (px - player_w//2, py + player_h//2 - 5, player_w, 10))
                 pygame.draw.rect(self.virtual_screen, (60, 60, 80), (px - player_w//2, py, player_w, player_h), border_radius=5)
                 head_r = player_w * 0.6
-                pygame.draw.circle(self.virtual_screen, (255, 240, 220), (px, py - head_r*0.5), head_r) 
+                pygame.draw.circle(self.virtual_screen, (255, 240, 220), (px, py - head_r*0.5), head_r)
                 pygame.draw.polygon(self.virtual_screen, (192, 192, 192), [(px - head_r, py - head_r*1.2), (px - head_r*0.5, py - head_r*2), (px, py - head_r*1.5), (px + head_r*0.5, py - head_r*2), (px + head_r, py - head_r*1.2)])
                 pygame.draw.circle(self.virtual_screen, (0, 100, 255), (px - head_r*0.3, py - head_r*0.5), max(1, int(head_r*0.15)))
                 pygame.draw.circle(self.virtual_screen, (0, 100, 255), (px + head_r*0.3, py - head_r*0.5), max(1, int(head_r*0.15)))
+
     def draw_mini_map(self, x, y):
         cx, cy = GAME_STATE["coord"]
         mx, my = cx // CHUNK_SCALE, cy // CHUNK_SCALE
         local_x, local_y = cx % CHUNK_SCALE, cy % CHUNK_SCALE
-        
+
         tile_size, gap = 26, 2
         for i in range(-2, 3):
             for j in range(-2, 3):
@@ -293,12 +297,12 @@ class GameApp:
         pygame.draw.rect(self.virtual_screen, COLOR_PANEL_BG, (20, 20, 300, SCREEN_HEIGHT - 40), border_radius=10)
         pygame.draw.rect(self.virtual_screen, COLOR_BORDER, (20, 20, 300, SCREEN_HEIGHT - 40), 2, border_radius=10)
         self.virtual_screen.blit(self.title_font.render("控制台", True, COLOR_TEXT), (40, 20))
-        
+
         cx, cy = GAME_STATE["coord"]
         self.virtual_screen.blit(self.font.render(f"坐标: {cx}, {cy}", True, (100, 200, 255)), (40, 70))
         self.virtual_screen.blit(self.small_font.render("区域雷达 (宏观)", True, COLOR_TEXT), (40, 120))
         self.draw_mini_map(40, 150)
-        
+
         # 触屏方向盘
         pygame.draw.rect(self.virtual_screen, COLOR_BTN, (130, 550, 60, 60), border_radius=8)
         self.virtual_screen.blit(self.title_font.render("↑", True, COLOR_TEXT), (145, 555))
@@ -311,64 +315,10 @@ class GameApp:
 
         self.draw_center_scene(340, 20, 920, 680)
 
-    def run(self):
-        try:
-            while self.running:
-                self.clock.tick(FPS)
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT: 
-                        self.running = False
-                    
-                    # 🌟 触屏长按检测（按下和抬起）
-                    elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                        vx, vy = event.pos
-                        if 130 <= vx <= 190 and 550 <= vy <= 610: self.touch_state["up"] = True
-                        elif 130 <= vx <= 190 and 620 <= vy <= 680: self.touch_state["down"] = True
-                        elif 60 <= vx <= 120 and 620 <= vy <= 680: self.touch_state["left"] = True
-                        elif 200 <= vx <= 260 and 620 <= vy <= 680: self.touch_state["right"] = True
-                    
-                    elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-                        vx, vy = event.pos
-                        # 抬手时，直接把所有的触屏状态清空
-                        self.touch_state["up"] = False
-                        self.touch_state["down"] = False
-                        self.touch_state["left"] = False
-                        self.touch_state["right"] = False
 
-                    # 物理键盘检测
-                    elif event.type == pygame.KEYDOWN:
-                        if event.key in [pygame.K_UP, pygame.K_w]: self.keys_state["up"] = True
-                        elif event.key in [pygame.K_DOWN, pygame.K_s]: self.keys_state["down"] = True
-                        elif event.key in [pygame.K_LEFT, pygame.K_a]: self.keys_state["left"] = True
-                        elif event.key in [pygame.K_RIGHT, pygame.K_d]: self.keys_state["right"] = True
-                    elif event.type == pygame.KEYUP:
-                        if event.key in [pygame.K_UP, pygame.K_w]: self.keys_state["up"] = False
-                        elif event.key in [pygame.K_DOWN, pygame.K_s]: self.keys_state["down"] = False
-                        elif event.key in [pygame.K_LEFT, pygame.K_a]: self.keys_state["left"] = False
-                        elif event.key in [pygame.K_RIGHT, pygame.K_d]: self.keys_state["right"] = False
-
-                # 执行移动（只要键盘或触屏任意一个按住，就会走）
-                if self.move_timer > 0:
-                    self.move_timer -= 1
-                else:
-                    moved = False
-                    if self.keys_state["up"] or self.touch_state["up"]: moved = self.move_player(0, -1)
-                    elif self.keys_state["down"] or self.touch_state["down"]: moved = self.move_player(0, 1)
-                    elif self.keys_state["left"] or self.touch_state["left"]: moved = self.move_player(-1, 0)
-                    elif self.keys_state["right"] or self.touch_state["right"]: moved = self.move_player(1, 0)
-                    
-                    if moved: self.move_timer = self.move_cooldown
-                    elif any(self.keys_state.values()) or any(self.touch_state.values()): self.move_timer = 5 
-
-                self.draw_game_scene()
-                self.screen.fill((0, 0, 0))
-                self.screen.blit(self.virtual_screen, (0, 0))
-                pygame.display.flip()
-                
-        except KeyboardInterrupt: pass
-        finally: pygame.quit()
-
-import asyncio
+# ==========================================
+# 以下是全新的异步启动和加载模块
+# ==========================================
 
 async def loading_screen(screen, font):
     loading_steps = [
@@ -397,28 +347,18 @@ async def loading_screen(screen, font):
         await asyncio.sleep(0.5) 
 
 async def main():
-    pygame.init()
-    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-    
-    # 加载中文字体
-    font_path = "assets/fonts/simhei.ttf"
-    if os.path.exists(font_path):
-        loading_font = pygame.font.Font(font_path, 36)
-    else:
-        loading_font = pygame.font.SysFont("arial", 36)
-
-    # 执行加载动画
-    await loading_screen(screen, loading_font)
-
-    # 启动你原来的游戏
     app = GameApp()
     
-    # 【核心修改】把原来的 app.run() 改成异步主循环，防止网页卡死
+    # 加载动画
+    font_path = "/system/fonts/NotoSansCJK-Regular.ttc"
+    loading_font = pygame.font.Font(font_path, 36) if os.path.exists(font_path) else pygame.font.SysFont("arial", 36)
+    await loading_screen(app.virtual_screen, loading_font)
+
+    # 异步主循环
     app.running = True
     while app.running:
-        await asyncio.sleep(1 / 60) # 代替原来的 clock.tick(60)
+        await asyncio.sleep(1 / 60) 
         
-        # 这一块是你原来 GameApp.run 里的逻辑，现在直接搬到这里
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 app.running = False
@@ -429,7 +369,6 @@ async def main():
                 elif 60 <= vx <= 120 and 620 <= vy <= 680: app.touch_state["left"] = True
                 elif 200 <= vx <= 260 and 620 <= vy <= 680: app.touch_state["right"] = True
             elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-                vx, vy = event.pos
                 app.touch_state["up"] = False
                 app.touch_state["down"] = False
                 app.touch_state["left"] = False
@@ -445,7 +384,6 @@ async def main():
                 elif event.key in [pygame.K_LEFT, pygame.K_a]: app.keys_state["left"] = False
                 elif event.key in [pygame.K_RIGHT, pygame.K_d]: app.keys_state["right"] = False
 
-        # 执行移动
         if app.move_timer > 0:
             app.move_timer -= 1
         else:
@@ -458,7 +396,6 @@ async def main():
             if moved: app.move_timer = app.move_cooldown
             elif any(app.keys_state.values()) or any(app.touch_state.values()): app.move_timer = 5
 
-        # 渲染
         app.draw_game_scene()
         app.screen.fill((0, 0, 0))
         app.screen.blit(app.virtual_screen, (0, 0))
