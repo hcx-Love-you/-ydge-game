@@ -1,47 +1,23 @@
-name: Build APK
-
-on:
-  push:
-    branches: [ "main", "master" ]
-  workflow_dispatch:
+name: Build Kivy APK
+on: [push, workflow_dispatch]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
+      - name: Build with Buildozer
+        uses: guysoft/buildozer-action@v1
+        id: buildozer
+        with:
+          command: buildozer android debug
+          workdir: .          # 如果你的 buildozer.spec 不在根目录，请改成对应子目录
+          buildozer_version: stable
 
-    - name: Install System Dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev aidl
-
-    - name: Install Buildozer
-      run: |
-        pip3 install --user --upgrade buildozer Cython==0.29.36 virtualenv
-
-    - name: Inject Android SDK Licenses & Cache Clean
-      run: |
-        export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
-        mkdir -p $ANDROID_SDK_ROOT/licenses
-        echo -e "\n8933bad161af4b6a5b573652ffc7aaf3aee85a47" > $ANDROID_SDK_ROOT/licenses/android-sdk-license
-        echo -e "\nd56f5187479451eabf01fb78af6dfcb131b33910" > $ANDROID_SDK_ROOT/licenses/android-sdk-preview-license
-        echo -e "\n84831b9409646a918e30573bab4c9c91346d8abd" > $ANDROID_SDK_ROOT/licenses/google-tv-preview-license
-
-    - name: Build with Buildozer
-      uses: ArtemSBulgakov/buildozer-action@v1
-      id: buildozer
-      with:
-        command: buildozer android clean && buildozer android debug
-        buildozer_version: stable
-
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: package
-        path: ${{ steps.buildozer.outputs.filename }}
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: package
+          path: ${{ steps.buildozer.outputs.filename }}
